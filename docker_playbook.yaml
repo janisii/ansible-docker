@@ -1,0 +1,55 @@
+---
+- name: Install Docker on Ubuntu
+  hosts: instances
+  become: yes
+  vars_files: 
+    - ./vars.yaml
+  # Tasks to install Docker
+  tasks:
+  # Register variable ubutnu with hostname
+  - name: Check for ubuntu
+    command: hostname -s
+    register: ubuntu  
+    when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+  # Output the hostname
+  - name: Output the hostname of instance
+    debug: msg="{{ ubuntu.stdout }}"
+    when: ubuntu.changed
+  # Run on inctance apt-get update with 6 min interval
+  - name: Update packages
+    apt: update_cache=yes cache_valid_time=3600
+    when: ubuntu.changed
+  # Install docker on the instance
+  - name: Install Docker
+    apt: name=docker.io state=present
+    when: ubuntu.changed
+  # Install ACL on the instance
+  - name: Install Docker
+    apt: name=acl state=present
+    when: ubuntu.changed    
+  # Add docker user form vars
+  - name: Add docker user
+    user:
+      name: "{{ docker_user }}"
+  # Add user to docker group to allow default user to use docker
+  - name: Add user to Docker group
+    user:
+      name: "{{ docker_user }}"
+      groups: docker
+      append: yes
+    when: ubuntu.changed
+  # Reset the ssh connection to init adding to docker group
+  - name: reset ssh connection to allow user changes to affect 'current login user'
+    meta: reset_connection
+  # Test the installation of docker
+  - name: Test docker
+    command: docker ps
+    register: docker_ps
+    become: yes
+    become_user: "{{ docker_user }}"
+    when: ubuntu.changed
+  # Output the results of docker ps
+  - name: Docker availability
+    debug: msg="{{ docker_ps.stdout_lines }}"
+    become: yes
+    when: ubuntu.changed
